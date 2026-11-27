@@ -38,8 +38,10 @@ jobs:
       - name: Verify application and signature
         run: |
           APP=src-tauri/target/universal-apple-darwin/release/bundle/macos/LightMD.app
-          test -f "$APP/Contents/MacOS/lightmd"
-          lipo -verify_arch arm64 x86_64 "$APP/Contents/MacOS/lightmd"
+          trap 'echo "::error::Mac verification failed at: $BASH_COMMAND"' ERR
+          EXECUTABLE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Contents/Info.plist")
+          test -f "$APP/Contents/MacOS/$EXECUTABLE"
+          lipo -verify_arch arm64 x86_64 "$APP/Contents/MacOS/$EXECUTABLE"
           codesign --verify --deep --strict --verbose=2 "$APP"
           ditto -c -k --sequesterRsrc --keepParent "$APP" LightMD-mac-universal.zip
       - uses: actions/upload-artifact@v4
