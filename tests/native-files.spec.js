@@ -12,6 +12,7 @@ test.beforeEach(async ({ page }) => {
         const state = window.desktop;
         if (command === 'plugin:event|listen') return 1;
         if (command === 'plugin:dialog|save') { state.saves++; return state.savePath; }
+        if (command === 'plugin:dialog|message') return 'Yes';
         if (command === 'plugin:dialog|open') return '/Documents/opened.md';
         if (command === 'plugin:fs|read_text_file') return new TextEncoder().encode(state.files[args.path]);
         if (command === 'plugin:fs|write_text_file') {
@@ -49,7 +50,6 @@ test('open, edit, save and reopen preserves Unicode content', async ({ page }) =
   await expect(page.getByRole('status')).toHaveText('File saved');
   expect(await page.evaluate(() => window.desktop.saves)).toBe(0);
   await page.getByRole('button', { name: 'New', exact: true }).click();
-  page.once('dialog', dialog => dialog.accept());
   await page.getByRole('button', { name: 'Open…', exact: true }).click();
   await expect(page.getByRole('textbox')).toHaveValue(content);
 });

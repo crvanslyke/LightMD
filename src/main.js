@@ -45,7 +45,11 @@ function changeMode(value) {
 }
 editor.addEventListener('input', () => { text = editor.value; render(); recover(); });
 document.querySelectorAll('button[data-mode]').forEach(b => b.onclick = () => changeMode(b.dataset.mode));
-function canReplace() { return text === savedText || confirm('Replace this draft? Save it first if you want to keep it.'); }
+async function canReplace(message = 'Replace this draft? Save it first if you want to keep it.') {
+  if (text === savedText) return true;
+  if (native) { const { ask } = await import('@tauri-apps/plugin-dialog'); return ask(message, { title: 'Unsaved changes', kind: 'warning' }); }
+  return confirm(message);
+}
 function load(content, label, location) { text = content; name = label; path = location; savedText = text; editor.value = text; render(); recover(); status.textContent = 'File opened'; }
 async function run(action) {
   if (busy) return;
@@ -53,9 +57,9 @@ async function run(action) {
   document.querySelectorAll('.file-actions button').forEach(button => { button.disabled = true; });
   try { await action(); } catch (error) { status.textContent = `Could not complete action: ${error.message || error}`; } finally { busy = false; document.querySelectorAll('.file-actions button').forEach(button => { button.disabled = false; }); }
 }
-document.querySelector('#new').onclick = () => { if (!canReplace()) return; text = ''; name = 'Untitled.md'; path = null; savedText = null; editor.value = text; render(); recover(); changeMode('write'); editor.focus(); };
+document.querySelector('#new').onclick = () => run(async () => { if (!await canReplace()) return; text = ''; name = 'Untitled.md'; path = null; savedText = null; editor.value = text; render(); recover(); changeMode('write'); editor.focus(); });
 document.querySelector('#open').onclick = () => run(async () => {
-  if (!canReplace()) return;
+  if (!await canReplace()) return;
   if (native) {
     const { open } = await import('@tauri-apps/plugin-dialog');
     const selected = await open({ multiple: false, filters: [{ name: 'Markdown', extensions: ['md','markdown','txt'] }] });
@@ -88,6 +92,6 @@ function focus(value) { document.body.classList.toggle('focused', value); }
 document.querySelector('#focus').onclick = () => focus(true);
 document.querySelector('#exit-focus').onclick = () => focus(false);
 document.addEventListener('keydown', event => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') { event.preventDefault(); run(() => save(event.shiftKey)); } if(event.key === 'Escape') focus(false); });
-window.addEventListener('beforeunload', event => { if(text !== savedText) { event.preventDefault(); event.returnValue = ''; } });
-if (native) import('@tauri-apps/api/window').then(({ getCurrentWindow }) => getCurrentWindow().onCloseRequested(event => { if (!canReplace()) event.preventDefault(); })).catch(error => { status.textContent = `Close protection unavailable: ${error.message || error}`; });
+window.addEventListener('beforeunload', event => { if(!native && text !== savedText) { event.preventDefault(); event.returnValue = ''; } });
+if (native) import('@tauri-apps/api/window').then(({ getCurrentWindow }) => getCurrentWindow().onCloseRequested(async event => { if (busy || !await canReplace('Close this document? Unsaved changes will remain in draft recovery, but will not be saved to your file.')) event.preventDefault(); })).catch(error => { status.textContent = `Close protection unavailable: ${error.message || error}`; });
 render(); status.textContent = recovered ? 'Recovered draft — save to a file to keep it' : 'Ready when you are';
