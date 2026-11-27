@@ -1,0 +1,45 @@
+import { test, expect } from '@playwright/test';
+test('writing, safe rendering, modes, draft recovery and focus', async ({ page }) => {
+  await page.goto('/');
+  const editor = page.getByRole('textbox', { name: 'Markdown editor' });
+  await editor.fill('# My draft\n\n**A clear thought.**\n\n<script>window.compromised=true</script>\n\n[unsafe](javascript:alert(1))');
+  await page.getByRole('button', { name: 'Split', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'My draft' })).toBeVisible();
+  await expect(editor).toBeVisible();
+  expect(await page.evaluate(() => window.compromised)).toBeUndefined();
+  expect(await page.locator('article a').getAttribute('href')).toBeNull();
+  await page.getByRole('button', { name: 'Read', exact: true }).click();
+  await expect(editor).toBeHidden();
+  await page.reload();
+  await expect(editor).toHaveValue(/My draft/);
+  await expect(page.getByRole('status')).toContainText('Recovered draft');
+  await page.getByRole('button', { name: 'Focus', exact: false }).first().click();
+  await expect(page.locator('header')).toBeHidden();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('header')).toBeVisible();
+  await page.getByRole('button', { name: 'Toggle theme' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+});
+test('open and download Markdown without altering its contents', async ({ page }) => {
+  await page.goto('/');
+  const content = '# Opened file\n\nA sentence with **weight**.\n';
+  await page.locator('#file-input').setInputFiles({ name: 'notes.md', mimeType: 'text/markdown', buffer: Buffer.from(content) });
+  await expect(page.getByRole('textbox')).toHaveValue(content);
+  const downloading = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  const download = await downloading;
+  expect(download.suggestedFilename()).toBe('notes.md');
+  const stream = await download.createReadStream();
+  const chunks = []; for await (const chunk of stream) chunks.push(chunk);
+  expect(Buffer.concat(chunks).toString()).toBe(content);
+});
+test('new document protects an unsaved draft', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('textbox').fill('Keep this');
+  page.once('dialog', dialog => dialog.dismiss());
+  await page.getByRole('button', { name: 'New', exact: true }).click();
+  await expect(page.getByRole('textbox')).toHaveValue('Keep this');
+  page.once('dialog', dialog => dialog.accept());
+  await page.getByRole('button', { name: 'New', exact: true }).click();
+  await expect(page.getByRole('textbox')).toHaveValue('');
+});
