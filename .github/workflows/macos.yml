@@ -1,0 +1,52 @@
+name: Build Mac app
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm test
+  mac:
+    needs: check
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install Rust and both Mac targets
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      - run: npm ci
+      - name: Build for Apple Silicon and Intel
+        run: npm run tauri build -- --target universal-apple-darwin
+      - name: Verify application and signature
+        run: |
+          APP=src-tauri/target/universal-apple-darwin/release/bundle/macos/LightMD.app
+          test -f "$APP/Contents/MacOS/lightmd"
+          lipo -verify_arch arm64 x86_64 "$APP/Contents/MacOS/lightmd"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          ditto -c -k --sequesterRsrc --keepParent "$APP" LightMD-mac-universal.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LightMD-Mac
+          path: |
+            LightMD-mac-universal.zip
+            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+          retention-days: 30

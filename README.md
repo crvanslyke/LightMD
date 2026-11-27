@@ -2,6 +2,18 @@
 
 A quiet Markdown editor built with Vite and Tauri 2. Write, read rendered Markdown, or keep both side by side. Includes focus mode, light/dark themes, word counts, local draft recovery, and file opening/saving.
 
+## Install on a Mac
+
+The [Build Mac app workflow](https://github.com/crvanslyke/LightMD/actions/workflows/macos.yml) produces a universal app for Apple Silicon and Intel Macs (macOS 11+).
+
+1. Open the latest successful run and download its **LightMD-Mac** artifact (GitHub sign-in required).
+2. Unzip the artifact, open the `.dmg`, and drag **LightMD** into **Applications**.
+3. Launch LightMD from Applications. No Node.js, npm, Rust, or running development server is needed.
+
+This initial build is ad-hoc signed, without Apple notarization. macOS may block the first launch; after attempting to open it, use **System Settings → Privacy & Security → Open Anyway** if offered. Distribution with a verified developer identity and notarization requires Apple Developer credentials, which are not configured. Do not disable Gatekeeper globally.
+
+Use Open to choose a Markdown file. The first Save opens a name/location dialog; later saves update that same file. Save as chooses another file. Drafts recovered after quitting must be saved to a chosen location again.
+
 ## Develop
 
 Requires Node.js 22+ and npm. From this checkout:
@@ -28,7 +40,7 @@ To build a desktop executable:
 npm run tauri build
 ```
 
-Installer bundling is currently disabled; this builds the executable under `src-tauri/target/release`. Native compilation and file-dialog behavior have not yet been validated in the cloud machine, which lacks Rust and GTK/WebKitGTK. Browser-mode tests do not establish native readiness.
+Installer bundling is enabled. On macOS this produces an application and disk image under `src-tauri/target/release/bundle`. The GitHub workflow builds a universal binary and checks its architecture and signature. Native file-dialog behavior still requires a manual check on a Mac: save a new document to a chosen folder, edit and save again, quit, reopen the file, and confirm the edits. Tests with simulated Tauri IPC verify frontend file-operation logic but do not establish native dialog or permission readiness.
 
 ## Checks
 

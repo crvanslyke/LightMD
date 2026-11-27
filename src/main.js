@@ -50,7 +50,8 @@ function load(content, label, location) { text = content; name = label; path = l
 async function run(action) {
   if (busy) return;
   busy = true;
-  try { await action(); } catch (error) { status.textContent = `Could not complete action: ${error.message || error}`; } finally { busy = false; }
+  document.querySelectorAll('.file-actions button').forEach(button => { button.disabled = true; });
+  try { await action(); } catch (error) { status.textContent = `Could not complete action: ${error.message || error}`; } finally { busy = false; document.querySelectorAll('.file-actions button').forEach(button => { button.disabled = false; }); }
 }
 document.querySelector('#new').onclick = () => { if (!canReplace()) return; text = ''; name = 'Untitled.md'; path = null; savedText = null; editor.value = text; render(); recover(); changeMode('write'); editor.focus(); };
 document.querySelector('#open').onclick = () => run(async () => {
